@@ -3,6 +3,7 @@
 import datetime as dt
 import json
 import os
+import time
 from pathlib import Path
 import urllib.error
 import urllib.parse
@@ -62,8 +63,19 @@ def fetch(start, end):
                'x-req-source': 'PublishedCalendar',
                'x-owa-urlpostdata': json.dumps(payload, separators=(',', ':'))}
     req = urllib.request.Request(url, data=b'', headers=headers, method='POST')
-    with urllib.request.urlopen(req, timeout=45) as r:
-        data = json.load(r)
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                data = json.load(r)
+            break
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            if attempt == 3:
+                raise
+            delay = 5 * (2 ** attempt)
+            print(f'Calendar connection failed; retrying in {delay}s', flush=True)
+            time.sleep(delay)
     messages = data['Body']['ResponseMessages']['Items']
     if not messages:
         raise RuntimeError('No Exchange response messages')
