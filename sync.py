@@ -68,13 +68,13 @@ def fetch(start, end):
             with urllib.request.urlopen(req, timeout=45) as r:
                 data = json.load(r)
             break
-        except urllib.error.HTTPError:
-            raise
-        except (urllib.error.URLError, ConnectionError, TimeoutError):
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+            if isinstance(exc, urllib.error.HTTPError) and exc.code not in (429, 500, 502, 503, 504):
+                raise
             if attempt == 3:
                 raise
             delay = 5 * (2 ** attempt)
-            print(f'Calendar connection failed; retrying in {delay}s', flush=True)
+            print(f'Calendar request failed; retrying in {delay}s', flush=True)
             time.sleep(delay)
     messages = data['Body']['ResponseMessages']['Items']
     if not messages:
